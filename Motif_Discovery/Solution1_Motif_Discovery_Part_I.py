@@ -1,81 +1,144 @@
-class MySeq:
-    def __init__(self, seq, seq_type="DNA"):
-        self .seq = seq.upper()
-        self .seq_type = seq_type
-
+class Sequence:
+    """
+    A class to represent biological sequences (DNA, RNA, or Protein).
+    Supports validation, transcription, reverse complement, and translation.
+    """
+    
+    def __init__(self, sequence, sequence_type="DNA"):
+        """
+        Initialize the sequence object.
+        
+        :param sequence: The biological sequence as a string.
+        :param sequence_type: Type of sequence ("DNA", "RNA", or "PROTEIN").
+        """
+        self.sequence = sequence.upper()
+        self.sequence_type = sequence_type
+    
     def __len__(self):
-        return len(self.seq)
-
-    def __getitem__(self, n):
-        return self.seq[n]
-
-    def __getslice__(self, i, j):
-        return self.seq[i:j]
-
+        """Return the length of the sequence."""
+        return len(self.sequence)
+    
+    def __getitem__(self, index):
+        """Support indexing to access individual characters."""
+        return self.sequence[index]
+    
     def __str__(self):
-        return self.seq
-
-    def get_seq_biotype (self):
-        return self.seq_type
-
-    def show_info_seq ( self):
-        print ("Sequence: " + self.seq + " biotype: " + self.seq_type)
-
-    def alphabet(self):
-        if(self.seq_type == "DNA"): return "ACGT"
-        elif (self.seq_type == "RNA"): return "ACGU"
-        elif (self.seq_type == "PROTEIN"): return "ACDEFGHIKLMNPQRSTVWY"
-        else: return None
-
-    def validate(self):
-        alp = self.alphabet()
-        res = True
-        i = 0
-        while i < len(self.seq) and res:
-            if self.seq[i] not in alp: res = False
-            else: i += 1
-        return res
-
-    def transcription(self):
-        if(self.seq_type == "DNA"):
-            return MySeq(self.seq.replace("T", "U"), "RNA")
-        else:
+        """Return the string representation of the sequence."""
+        return self.sequence
+    
+    def get_type(self):
+        """Return the type of the sequence."""
+        return self.sequence_type
+    
+    def display_info(self):
+        """Print the sequence and its type."""
+        print(f"Sequence: {self.sequence} | Type: {self.sequence_type}")
+    
+    def get_alphabet(self):
+        """Return the expected alphabet for the sequence type."""
+        alphabets = {
+            "DNA": "ACGT",
+            "RNA": "ACGU",
+            "PROTEIN": "ACDEFGHIKLMNPQRSTVWY"
+        }
+        return alphabets.get(self.sequence_type)
+    
+    def is_valid(self):
+        """Validate if the sequence contains only valid characters for its type."""
+        alphabet = self.get_alphabet()
+        if not alphabet:
+            return False
+        return all(char in alphabet for char in self.sequence)
+    
+    def transcribe(self):
+        """Transcribe DNA to RNA by replacing T with U."""
+        if self.sequence_type != "DNA":
             return None
-
-    def reverse_comp(self):
-        if(self.seq_type != "DNA"): return None
-        comp = ""
-        for c in self.seq:
-            if(c == "A"): comp = "T" + comp
-            elif (c == "T"): comp = "A" + comp
-            elif (c == "G"): comp = "C" + comp
-            elif (c == "C"): comp = "G" + comp
-        return MySeq(comp, "DNA")
-
-    def translate (self, iniPos = 0):
-        if (self.seq_type != "DNA"): return None
-        seq_aa = ""
-        for pos in range (iniPos, len(self.seq)-2,3):
-            cod = self.seq[pos:pos+3]
-            seq_aa += self.translate_codon(cod)
-        return MySeq(seq_aa, "PROTEIN")
-
-    def translate_codon(self, cod):
-        """Translates a codon into an aminoacid using an internal
-        dictionary with the standard genetic code."""
-        tc = {"GCT": "A", "GCC": "A", "GCA": "A", "GCG": "A", "TGT": "C", "TGC": "C",
-              "GAT": "D", "GAC": "D", "GAA": "E", "GAG": "E", "TTT": "F", "TTC": "F",
-              "GGT": "G", "GGC": "G", "GGA": "G", "GGG": "G", "CAT": "H", "CAC": "H",
-              "ATA": "I", "ATT": "I", "ATC": "I", "AAA": "K", "AAG": "K","TTA": "L",
-              "TTG": "L", "CTT": "L", "CTC": "L", "CTA": "L", "CTG": "L", "ATG":"M",
-              "AAT": "N", "AAC": "N", "CCT": "P", "CCC": "P", "CCA": "P", "CCG": "P",
-              "CAA": "Q", "CAG": "Q", "CGT": "R", "CGC": "R", "CGA": "R", "CGG": "R",
-              "AGA": "R", "AGG": "R", "TCT":"S", "TCC": "S", "TCA": "S", "TCG": "S",
-              "AGT": "S", "AGC": "S", "ACT":"T", "ACC": "T", "ACA": "T", "ACG": "T",
-              "GTT": "V", "GTC": "V", "GTA": "V", "GTG": "V", "TGG": "W", "TAT": "Y",
-              "TAC": "Y", "TAA": "_", "TAG": "_", "TGA": "_"}
-        if cod in tc: return tc[cod]
-        else: return None
-
-    def __getslice__(self, i, j):
-        return self.seq[i:j]
+        rna_seq = self.sequence.replace("T", "U")
+        return Sequence(rna_seq, "RNA")
+    
+    def reverse_complement(self):
+        """Compute the reverse complement for DNA sequences."""
+        if self.sequence_type != "DNA":
+            return None
+        
+        complement_map = {"A": "T", "T": "A", "G": "C", "C": "G"}
+        rev_comp = "".join(complement_map.get(base, base) for base in reversed(self.sequence))
+        return Sequence(rev_comp, "DNA")
+    
+    def translate_to_protein(self, start_position=0):
+        """
+        Translate DNA sequence to protein starting from a given position.
+        
+        :param start_position: Starting index for translation (multiple of 3 recommended).
+        :return: Sequence object of type PROTEIN.
+        """
+        if self.sequence_type != "DNA":
+            return None
+        
+        protein_seq = ""
+        codon_table = {
+            "GCT": "A", "GCC": "A", "GCA": "A", "GCG": "A",
+            "TGT": "C", "TGC": "C",
+            "GAT": "D", "GAC": "D",
+            "GAA": "E", "GAG": "E",
+            "TTT": "F", "TTC": "F",
+            "GGT": "G", "GGC": "G", "GGA": "G", "GGG": "G",
+            "CAT": "H", "CAC": "H",
+            "ATA": "I", "ATT": "I", "ATC": "I",
+            "AAA": "K", "AAG": "K",
+            "TTA": "L", "TTG": "L", "CTT": "L", "CTC": "L", "CTA": "L", "CTG": "L",
+            "ATG": "M",
+            "AAT": "N", "AAC": "N",
+            "CCT": "P", "CCC": "P", "CCA": "P", "CCG": "P",
+            "CAA": "Q", "CAG": "Q",
+            "CGT": "R", "CGC": "R", "CGA": "R", "CGG": "R", "AGA": "R", "AGG": "R",
+            "TCT": "S", "TCC": "S", "TCA": "S", "TCG": "S", "AGT": "S", "AGC": "S",
+            "ACT": "T", "ACC": "T", "ACA": "T", "ACG": "T",
+            "GTT": "V", "GTC": "V", "GTA": "V", "GTG": "V",
+            "TGG": "W",
+            "TAT": "Y", "TAC": "Y",
+            "TAA": "_", "TAG": "_", "TGA": "_"
+        }
+        
+        for i in range(start_position, len(self.sequence) - 2, 3):
+            codon = self.sequence[i:i+3]
+            amino_acid = codon_table.get(codon)
+            if amino_acid is None:
+                protein_seq += "X"  # Use X for unknown codons
+            else:
+                protein_seq += amino_acid
+        
+        return Sequence(protein_seq, "PROTEIN")
+    
+    def translate_codon(self, codon):
+        """
+        Translate a single codon to an amino acid using the standard genetic code.
+        
+        :param codon: Three-letter codon string.
+        :return: Amino acid letter or None if invalid.
+        """
+        codon_table = {
+            "GCT": "A", "GCC": "A", "GCA": "A", "GCG": "A",
+            "TGT": "C", "TGC": "C",
+            "GAT": "D", "GAC": "D",
+            "GAA": "E", "GAG": "E",
+            "TTT": "F", "TTC": "F",
+            "GGT": "G", "GGC": "G", "GGA": "G", "GGG": "G",
+            "CAT": "H", "CAC": "H",
+            "ATA": "I", "ATT": "I", "ATC": "I",
+            "AAA": "K", "AAG": "K",
+            "TTA": "L", "TTG": "L", "CTT": "L", "CTC": "L", "CTA": "L", "CTG": "L",
+            "ATG": "M",
+            "AAT": "N", "AAC": "N",
+            "CCT": "P", "CCC": "P", "CCA": "P", "CCG": "P",
+            "CAA": "Q", "CAG": "Q",
+            "CGT": "R", "CGC": "R", "CGA": "R", "CGG": "R", "AGA": "R", "AGG": "R",
+            "TCT": "S", "TCC": "S", "TCA": "S", "TCG": "S", "AGT": "S", "AGC": "S",
+            "ACT": "T", "ACC": "T", "ACA": "T", "ACG": "T",
+            "GTT": "V", "GTC": "V", "GTA": "V", "GTG": "V",
+            "TGG": "W",
+            "TAT": "Y", "TAC": "Y",
+            "TAA": "_", "TAG": "_", "TGA": "_"
+        }
+        return codon_table.get(codon.upper())
