@@ -1,116 +1,103 @@
-# read the complex substitution matrices from file
-def read_submat_file(filename):
-    sm = {}
-    f = open(filename, "r")
-    line = f.readline()
-    tokens = line.split("\t")
-    ns = len(tokens)
-    alphabet = []
-    for i in range(0, ns):
-        alphabet.append(tokens[i][0])
-    for i in range(0, ns):
-        line = f.readline()
-        tokens = line.split("\t")
-        for j in range(0, len (tokens)):
-            k = alphabet[i]+alphabet[j]
-            sm[k] = int (tokens[j])
-    return sm
+# Load a substitution matrix from a tab-delimited file
+def load_substitution_matrix(file_path):
+    sub_matrix = {}
+    with open(file_path, 'r') as input_file:
+        header_row = input_file.readline().strip().split('\t')
+        num_symbols = len(header_row)
+        symbols = [entry[0] for entry in header_row]
+        for row_idx in range(num_symbols):
+            row_data = input_file.readline().strip().split('\t')
+            for col_idx, score_value in enumerate(row_data):
+                symbol_pair = symbols[row_idx] + symbols[col_idx]
+                sub_matrix[symbol_pair] = int(score_value)
+    return sub_matrix
 
-# calculate the score of each cells in matrix
-def score_pos (sq_pos1, sq_pos2, sm, g):
-    if sq_pos1 == "−" or sq_pos2=="−":
-        return g
-    else :
-        return sm[sq_pos1+sq_pos2]
+# Evaluate the score for a pair of characters in the alignment, applying gap penalty if needed
+def evaluate_position_score(char_a, char_b, sub_matrix, gap_penalty):
+    if char_a == '-' or char_b == '-':
+        return gap_penalty
+    return sub_matrix[char_a + char_b]
 
-# Traceback filling rule
-def max3traceback(v1, v2, v3):
-    if v1 > v2:
-        if v1 > v3: return 1
-        else: return 3
+# Determine the direction for traceback based on the highest score
+def select_traceback_path(diag_val, vertical_val, horizontal_val):
+    if diag_val >= vertical_val and diag_val >= horizontal_val:
+        return 1  # Diagonal move
+    elif vertical_val >= horizontal_val:
+        return 2  # Vertical move
     else:
-        if v2 > v3: return 2
-        else: return 3
+        return 3  # Horizontal move
 
-# S matrix has n+1 rows and m+1 columns, the cell S(i,j) is filled by the following rule
-# S(i,j) = max{ S(i-1,j-1) + sm[a(i),b(j)],S(i-1,j) + g, S(i,j-1)+g, with 0<i<= n, 0<j<=m }
-# where sm(c1, c2) gives the value of the substitution matrix for symbols c1 and c2
-# g is penalty for a gap
-# T matrix is traceback matrix, which has n+1 rows and m+1 columns
-def smith_Water_Algorithsm (sequence1, sequence2, submax, gap):
-    S = [[0]]
-    T = [[0]]
-    maxscore = 0
-    # initialize gap's row
-    for j in range(1, len(sequence2)+1):
-        (S[0][j]).append(0)
-        (T[0][j]).append(0)
-    # initialize gap's column
-    for i in range(1, len(sequence1)+1):
-        (S[i][0]).append(0)
-        (T[i][0]).append(0)
-    # use a recurrence relation to fill the remaining of the matrix
-    for i in range(0, len(sequence1)):
-        for j in range(len(sequence2)):
-            s1 = S[i][j] + score_pos(sequence1[i], sequence2[j], submax, gap)
-            s2 = S[i][j+1] + gap
-            s3 = S[i+1][j] + gap
-            b = max(s1, s2, s3)
-            if b <= 0:
-                S[i + 1].append(0)
-                T[i + 1].append(0)
+# Implement the Smith-Waterman dynamic programming for local alignment
+def perform_smith_waterman(seq_a, seq_b, sub_matrix, gap_penalty):
+    len_a, len_b = len(seq_a), len(seq_b)
+    # Create score and traceback matrices
+    score_mat = [[0] * (len_b + 1) for _ in range(len_a + 1)]
+    trace_mat = [[0] * (len_b + 1) for _ in range(len_a + 1)]
+    max_score = 0
+    max_row, max_col = 0, 0
+    
+    # Initialization: first row and column are 0 for local alignment
+    # No need to set explicitly as already initialized to 0
+    
+    # Populate the matrices
+    for row in range(1, len_a + 1):
+        for col in range(1, len_b + 1):
+            diag = score_mat[row-1][col-1] + evaluate_position_score(seq_a[row-1], seq_b[col-1], sub_matrix, gap_penalty)
+            vertical = score_mat[row-1][col] + gap_penalty
+            horizontal = score_mat[row][col-1] + gap_penalty
+            candidates = [diag, vertical, horizontal, 0]
+            max_val = max(candidates)
+            score_mat[row][col] = max_val
+            if max_val == 0:
+                trace_mat[row][col] = 0
             else:
-                S[i+1].append(b)
-                T[i+1].append(max3traceback(s1, s2, s3))
-                if b > maxscore:
-                    maxscore = b
-    return (S, T, maxscore)
+                # Determine direction excluding the 0 case
+                direction_candidates = [diag, vertical, horizontal]
+                trace_mat[row][col] = select_traceback_path(*direction_candidates)
+            if max_val > max_score:
+                max_score = max_val
+                max_row, max_col = row, col
+    
+    return score_mat, trace_mat, max_score, (max_row, max_col)
 
-def max_mat(mat):
-    maxval = mat[0][0]
-    maxrow = 0
-    maxcol = 0
-    for i in range (0, len (mat)):
-        for j in range (0, len (mat[i])):
-            if mat[i][j] > maxval:
-                maxval = mat[i][j]
-                maxrow = i
-                maxcol = j
-    return (maxrow,maxcol)
+# Reconstruct the aligned sequences by following the traceback from the max score position
+def reconstruct_local_alignment(trace_matrix, seq_a, seq_b, start_row, start_col):
+    aligned_a = []
+    aligned_b = []
+    row, col = start_row, start_col
+    while row > 0 and col > 0 and trace_matrix[row][col] > 0:
+        direction = trace_matrix[row][col]
+        if direction == 1:
+            aligned_a.append(seq_a[row-1])
+            aligned_b.append(seq_b[col-1])
+            row -= 1
+            col -= 1
+        elif direction == 2:
+            aligned_a.append(seq_a[row-1])
+            aligned_b.append('-')
+            row -= 1
+        else:
+            aligned_a.append('-')
+            aligned_b.append(seq_b[col-1])
+            col -= 1
+    return ''.join(reversed(aligned_a)), ''.join(reversed(aligned_b))
 
-# restore the most similar sequence after traceback
-def recover_align_local (S, T, seq1, seq2):
-    res = ["", ""]
-    i, j = max_mat(S)
-    while T[i][j]>0:
-        if T[i][j]==1:
-            res[0] = seq1[i-1] + res [0]
-            res[1] = seq2[j-1] + res [1]
-            i -= 1
-            j -= 1
-        elif T[i][j] == 3:
-            res[0] = "−" + res[0];
-            res[1] = seq2[j-1] + res [1]
-            j -= 1
-        elif T[i][j] == 2:
-            res[0] = seq1[i-1] + res [0]
-            res[1] = "−" + res[1]
-            i -= 1
-    return res
+# Output a matrix row by row
+def display_matrix(mat):
+    for row in mat:
+        print(row)
 
-# test function
-def test_Local_Alignment():
-    sm = read_submat_file("blosum62.mat")
-    seq1 = "HGWAGWAGG"
-    seq2 = "PHSWGGAGH"
-    res = smith_Water_Algorithsm(seq1, seq2, sm, -8)
-    S = res[0]
-    T = res[1]
-    print ("Score of optimal alignment:", res[2])
-    print(S)
-    print(T)
-    alignment = recover_align_local(S, T, seq1, seq2)
-    print(alignment[0])
-    print(alignment[1])
+# Example execution
+def run_local_alignment_test():
+    sub_matrix = load_substitution_matrix("blosum62.mat")
+    sequence_a = "HGWAGWAGG"
+    sequence_b = "PHSWGGAGH"
+    score_result, trace_result, opt_score, max_pos = perform_smith_waterman(sequence_a, sequence_b, sub_matrix, -8)
+    print("Optimal alignment score:", opt_score)
+    display_matrix(score_result)
+    display_matrix(trace_result)
+    alignment_a, alignment_b = reconstruct_local_alignment(trace_result, sequence_a, sequence_b, *max_pos)
+    print(alignment_a)
+    print(alignment_b)
 
-test_Local_Alignment()
+run_local_alignment_test()
