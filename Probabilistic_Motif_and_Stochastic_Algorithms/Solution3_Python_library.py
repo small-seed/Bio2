@@ -1,39 +1,49 @@
 from Bio.Seq import Seq
 from Bio import motifs
 
-instances = []
-instances.append(Seq("TATAA"))
-instances.append(Seq("TATTA"))
-instances.append(Seq("TTTAT"))
-instances.append(Seq("TATAC"))
+# Define a list of sequence instances for the motif
+seq_list = [
+    Seq("TATAA"),
+    Seq("TATTA"),
+    Seq("TTTAT"),
+    Seq("TATAC")
+]
 
-m = motifs.create(instances)
+# Create the motif object from the sequences
+motif_obj = motifs.create(seq_list)
 
-print(type(m))
-print(m)
-print(len(m))
-print(m.consensus)
-print(m.pwm)
-print(m.counts)
-print(m.pssm)
+# Output basic information about the motif
+print(type(motif_obj))
+print(motif_obj)
+print(len(motif_obj))
+print(motif_obj.consensus)
+print(motif_obj.pwm)
+print(motif_obj.counts)
+print(motif_obj.pssm)
 
-m.weblogo("mymotif.png")
+# Generate a weblogo image for visualization
+motif_obj.weblogo("custom_motif_logo.png")
 
-pwm = m.counts.normalize(pseudocounts=0.5)
-pssm = pwm.log_odds()
-print(pwm)
-print(pssm)
+# Normalize the counts matrix with pseudocounts
+normalized_pwm = motif_obj.counts.normalize(pseudocounts=0.5)
 
-# exact matches of the instances
+# Compute the log-odds PSSM from the normalized PWM
+log_odds_pssm = normalized_pwm.log_odds()
 
-test_seq = Seq("TTTTATACACTGCATATAACAACCCAAGCATTATAA")
+# Display the normalized PWM and PSSM
+print(normalized_pwm)
+print(log_odds_pssm)
 
-for pos, seq in m.instances.search(test_seq):
-    print(pos, " ", seq)
+# Define a test sequence to search within
+target_sequence = Seq("TTTTATACACTGCATATAACAACCCAAGCATTATAA")
 
-# using PSSM to score matches
-for position, score in pssm.search(test_seq, threshold=4.0):
-    print("Position %d: score = %5.3f" % (position, score))
+# Find exact matches of the motif instances in the test sequence
+for start_pos, matched_seq in motif_obj.instances.search(target_sequence):
+    print(start_pos, " ", matched_seq)
 
-# scores for all positions
-print(pssm.calculate(test_seq))
+# Search for matches using the PSSM with a score threshold
+for start_position, match_score in log_odds_pssm.search(target_sequence, threshold=4.0):
+    print("Position %d: score = %5.3f" % (start_position, match_score))
+
+# Calculate PSSM scores for every possible position in the sequence
+print(log_odds_pssm.calculate(target_sequence))
