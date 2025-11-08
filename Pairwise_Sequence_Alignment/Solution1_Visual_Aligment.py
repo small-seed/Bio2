@@ -1,62 +1,52 @@
 import sys
 
-class Draw_Aligment_Plot:
-    def __init__(self, seq1, seq2):
-        self.sequence1 = seq1
-        self.sequence2 = seq2
+class SequenceDotPlot:
+    def __init__(self, primary_seq, secondary_seq):
+        self.primary = primary_seq
+        self.secondary = secondary_seq
 
-    # create a matrix that fill with 0
-    def create_mat(self, ncolumns, nrows):
-        matrix = []
-        for i in range(nrows):
-            matrix.append([])
-            for j in range(ncolumns):
-                matrix[i].append(0)
-        return matrix
+    def initialize_matrix(self, cols, rows):
+        return [[0 for _ in range(cols)] for _ in range(rows)]
 
-    # create a matrix which the matched character represented by 1 and not match represented by 0
-    def dotplot(self):
-        matrix_plot = self.create_mat(len(self.sequence1), len(self.sequence2))
-        for i in range(len(self.sequence1)):
-            for j in range(len(self.sequence2)):
-                if self.sequence1[i] == self.sequence2[j]:
-                    matrix_plot[i][j] = 1
-        return matrix_plot
+    def generate_dot_matrix(self):
+        plot_matrix = self.initialize_matrix(len(self.secondary), len(self.primary))
+        for row_idx in range(len(self.primary)):
+            for col_idx in range(len(self.secondary)):
+                if self.primary[row_idx] == self.secondary[col_idx]:
+                    plot_matrix[row_idx][col_idx] = 1
+        return plot_matrix
 
-    # Filter the plot by create a neighborhood window around each position
-    # and count the matching characters in this window
-    # only fill a neighbor cell if the number of matching character exceeds
-    # a limit (stringency)
-    def filter_plot(self, window, stringecy):
-        matrix_filter = self.create_mat(len(self.sequence1), len(self.sequence2))
-        start = int(window/2)
-        for i in range(start, len(self.sequence1)-start):
-            for j in range(start, len(self.sequence2) - start):
-                matches = 0
-                l = j - start
-                for k in range(i-start, i+start+1):
-                    if self.sequence1[k] == self.sequencen2[l]:
-                        matches += 1
-                    l += 1
-                    if matches >= stringecy:
-                        matrix_filter[i][j] = 1
-        return matrix_filter
+    def apply_window_filter(self, window_size, threshold):
+        filtered_matrix = self.initialize_matrix(len(self.secondary), len(self.primary))
+        half_window = window_size // 2
+        for row in range(half_window, len(self.primary) - half_window):
+            for col in range(half_window, len(self.secondary) - half_window):
+                match_count = 0
+                col_offset = col - half_window
+                for row_offset in range(-half_window, half_window + 1):
+                    current_row = row + row_offset
+                    current_col = col_offset + row_offset
+                    if self.primary[current_row] == self.secondary[current_col]:
+                        match_count += 1
+                if match_count >= threshold:
+                    filtered_matrix[row][col] = 1
+        return filtered_matrix
 
-    # print plot
-    def print_dotplot(self, mat):
-        sys.stdout.write(" " + self.sequence2 + "\n")
-        for i in range(len(mat)):
-            sys.stdout.write(self.sequence1[i])
-            for j in range(len(mat[i])):
-                if mat[i][j] >= 1:
-                    sys.stdout.write("∗")
+    def render_plot(self, matrix):
+        sys.stdout.write(" " + self.secondary + "\n")
+        for row_idx in range(len(matrix)):
+            sys.stdout.write(self.primary[row_idx])
+            for col_val in matrix[row_idx]:
+                if col_val > 0:
+                    sys.stdout.write("*")
                 else:
                     sys.stdout.write(" ")
             sys.stdout.write("\n")
 
-def test():
-    plot_instace = Draw_Aligment_Plot("CGATATACCTAG", "TATGATGGATT")
-    matrix_result = plot_instace.filter_plot(5, 4)
-    plot_instace.print_dotplot(matrix_result)
+def example_usage():
+    plotter = SequenceDotPlot("CGATATACCTAG", "TATGATGGATT")
+    filtered_result = plotter.apply_window_filter(5, 4)
+    plotter.render_plot(filtered_result)
 
-test()
+if __name__ == "__main__":
+    example_usage()
