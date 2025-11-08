@@ -1,4 +1,3 @@
-```python
 from Solution1_Simple_Progressive_MSA_Part_I import PairwiseAligner as PairwiseAlignment
 from Solution1_Simple_Progressive_MSA_Part_I import Alignment as MyAlign
 from Solution1_Simple_Progressive_MSA_Part_I import Sequence as MySeq
@@ -68,4 +67,3 @@ def run_example():
     final_alignment = multi_aligner.perform_alignment()
     
     print(final_alignment)
-```
