@@ -1,45 +1,38 @@
-#function
+# Define a function to build a custom scoring matrix for sequence alignments
+def build_scoring_matrix(match_score, mismatch_score, symbols):
+    scoring_dict = {}
+    for symbol1 in symbols:
+        for symbol2 in symbols:
+            key = symbol1 + symbol2
+            scoring_dict[key] = match_score if symbol1 == symbol2 else mismatch_score
+    return scoring_dict
 
-# Create customs substitution matrices
-def create_submat(match, mismatch, alphabet):
-    sm = {}
-    for c1 in alphabet:
-        for c2 in alphabet:
-            if c1 == c2:
-                sm[c1+c2] = match
-            else:
-                sm[c1+c2] = mismatch
-    return sm
+# Parse a substitution matrix from an input file
+def parse_matrix_file(file_path):
+    scoring_dict = {}
+    with open(file_path, 'r') as file_handle:
+        header_line = file_handle.readline().strip()
+        header_tokens = header_line.split('\t')
+        num_symbols = len(header_tokens)
+        symbols = [token[0] for token in header_tokens]
+        
+        for row_index in range(num_symbols):
+            row_line = file_handle.readline().strip()
+            row_tokens = row_line.split('\t')
+            for col_index, score_str in enumerate(row_tokens):
+                pair_key = symbols[row_index] + symbols[col_index]
+                scoring_dict[pair_key] = int(score_str)
+    return scoring_dict
 
-# Load these matrices from files
-def read_submat_file(filename):
-    sm = {}
-    f = open(filename, "r")
-    line = f.readline()
-    tokens = line.split("\t")
-    ns = len(tokens)
-    alphabet = []
-    for i in range(0, ns):
-        alphabet.append(tokens[i][0])
-    for i in range(0, ns):
-        line = f.readline();
-        tokens = line.split("\t")
-        for j in range(0, len(tokens)):
-            k = alphabet[i]+alphabet[j]
-            sm[k] = int(tokens[j])
-    return sm
+# Compute the score for a single aligned position, accounting for gaps
+def position_score(char1, char2, scoring_matrix, gap_penalty):
+    if char1 == '-' or char2 == '-':
+        return gap_penalty
+    return scoring_matrix[char1 + char2]
 
-# Calculate the alignment score with g parameter is the score
-# given to a gap in the sequence
-def score_pos (c1, c2, sm, g):
-    if c1 == "−" or c2 == "−":
-        return g
-    else:
-        return sm[c1+c2]
-
-def cal_score_align(seq1, seq2, sm, g):
-    res = 0;
-    for i in range(len(seq1)):
-        res += score_pos (seq1[i], seq2[i], sm, g)
-    return res
-
+# Compute the total score for a pairwise alignment
+def compute_alignment_score(alignment1, alignment2, scoring_matrix, gap_penalty):
+    total_score = 0
+    for idx in range(len(alignment1)):
+        total_score += position_score(alignment1[idx], alignment2[idx], scoring_matrix, gap_penalty)
+    return total_score
