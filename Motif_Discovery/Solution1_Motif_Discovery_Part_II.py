@@ -1,226 +1,241 @@
-from Solution1_Motif_Discovery_Part_I import MySeq
+from Solution1_Motif_Discovery_Part_I import Sequence
 
-
-class DeterministcMOTIFsearch:
-    def __init__(self, size=8, seqs=None):
-        self.motif_size = size
-        if (seqs != None):
-            self.seqs = seqs
-            self.alphabet = seqs[0].alphabet()
-        else:
-            self.seqs = []
-
+class DeterministicMotifFinder:
+    """
+    A class for deterministic motif discovery in biological sequences.
+    Supports exhaustive search, branch-and-bound, and heuristic consensus methods.
+    """
+    
+    def __init__(self, motif_length=8, sequences=None):
+        """
+        Initialize the motif finder.
+        
+        :param motif_length: Length of the motif to search for.
+        :param sequences: List of Sequence objects (optional).
+        """
+        self.motif_length = motif_length
+        self.sequences = sequences if sequences is not None else []
+        self.alphabet = sequences[0].get_alphabet() if sequences else None
+    
     def __len__(self):
-        return len(self.seqs)
-
-    def __getitem__(self, n):
-        return self.seqs[n]
-
-    def seq_size(self, i):
-        return len(self.seqs[i])
-
-    def read_file(self, fic, t):
-        for s in open(fic, "r"):
-            self.seqs.append(MySeq(s.strip().upper(), t))
-        self.alphabet = self.seqs[0].alphabet()
-
-    def create_motif_from_indexes(self, indexes):
-        pseqs = []
-
-    def create_motif_from_indexes(self, indexes):
-        res = [[0]*self.motif_size for i in range(len(self.alphabet))]
-        for i, ind in enumerate(indexes):
-            subseq = self.seqs[i][ind:(ind + self.motif_size)]
-            for j in range(self.motif_size):
-                for k in range(len(self.alphabet)):
-                    if subseq[j] == self.alphabet[k]:
-                        res[k][j] = res[k][j] + 1
-        return res
-
-    # Score function
-    def score(self, s):
-        score = 0
-        mat = self.create_motif_from_indexes(s)
-        for j in range(len(mat[0])):
-            maxcol = mat[0][j]
-            for i in range(1, len(mat)):
-                if mat[i][j] > maxcol:
-                    maxcol = mat[i][j]
-                score += maxcol
-        return score
-
-    def score_multiplicative(self, s):
-        score = 1.0
-        mat = self.create_motif_from_indexes(s)
-        for j in range(len(mat[0])):
-            maxcol = mat[0][j]
-            for i in range(1, len(mat)):
-                if mat[i][j] > maxcol:
-                    maxcol = mat[i][j]
-            score *= maxcol
-        return score
-
-    # finds the vector s with the best initial positions of the motif in each sequence
-    # iterate through all possible values of the position in input sequence in D
-    # Inputs: t – sequences (length n); L – length of motif; and σ – optional minimum score
-    #  Outputs: A vector with the initial positions s = (s1, s2, ..., st) of the motif M in D that maximize the Score(s, D).
-    def next_solution(self, s):
-        next_sol = [0]*len(s)
-        pos = len(s) - 1
-        while pos >= 0 and s[pos] == self.seq_size(pos) - self.motif_size:
-            pos -= 1
-        if pos < 0:
-            next_sol = None
-        else:
-            for i in range(pos):
-                next_sol[i] = s[i]
-            next_sol[pos] = s[pos] + 1;
-            for i in range(pos + 1, len(s)):
-                next_sol[i] = 0
-        return next_sol
-
+        """Return the number of sequences."""
+        return len(self.sequences)
+    
+    def __getitem__(self, index):
+        """Access a sequence by index."""
+        return self.sequences[index]
+    
+    def sequence_length(self, index):
+        """Return the length of the sequence at the given index."""
+        return len(self.sequences[index])
+    
+    def load_sequences_from_file(self, filename, seq_type):
+        """
+        Load sequences from a file.
+        
+        :param filename: Path to the file containing sequences (one per line).
+        :param seq_type: Type of sequences ("DNA", "RNA", or "PROTEIN").
+        """
+        self.sequences = []
+        with open(filename, 'r') as file:
+            for line in file:
+                stripped_line = line.strip().upper()
+                if stripped_line:  # Skip empty lines
+                    self.sequences.append(Sequence(stripped_line, seq_type))
+        if self.sequences:
+            self.alphabet = self.sequences[0].get_alphabet()
+    
+    def _create_profile_matrix(self, start_positions):
+        """
+        Create a profile matrix (count matrix) from start positions in each sequence.
+        
+        :param start_positions: List of starting indices for the motif in each sequence.
+        :return: 2D list where rows are alphabet symbols, columns are motif positions.
+        """
+        num_sequences = len(self.sequences)
+        alphabet_size = len(self.alphabet)
+        profile = [[0] * self.motif_length for _ in range(alphabet_size)]
+        
+        for seq_idx, start_pos in enumerate(start_positions):
+            subsequence = self.sequences[seq_idx][start_pos:start_pos + self.motif_length]
+            for pos_idx, nucleotide in enumerate(subsequence):
+                if nucleotide in self.alphabet:
+                    alpha_idx = self.alphabet.index(nucleotide)
+                    profile[alpha_idx][pos_idx] += 1
+        
+        return profile
+    
+    def calculate_additive_score(self, start_positions):
+        """
+        Calculate the additive score of a set of start positions (sum of max counts per column).
+        
+        :param start_positions: List of starting indices.
+        :return: The additive score.
+        """
+        profile = self._create_profile_matrix(start_positions)
+        total_score = 0
+        for col in range(self.motif_length):
+            col_max = max(row[col] for row in profile)
+            total_score += col_max
+        return total_score
+    
+    def calculate_multiplicative_score(self, start_positions):
+        """
+        Calculate the multiplicative score of a set of start positions (product of max counts per column).
+        
+        :param start_positions: List of starting indices.
+        :return: The multiplicative score.
+        """
+        profile = self._create_profile_matrix(start_positions)
+        total_score = 1.0
+        for col in range(self.motif_length):
+            col_max = max(row[col] for row in profile)
+            total_score *= col_max
+        return total_score
+    
+    def _generate_next_position_vector(self, current_positions):
+        """
+        Generate the next lexicographical position vector.
+        
+        :param current_positions: Current list of start positions.
+        :return: Next position vector or None if at the end.
+        """
+        next_positions = list(current_positions)
+        i = len(next_positions) - 1
+        max_positions = [self.sequence_length(idx) - self.motif_length for idx in range(len(next_positions))]
+        
+        while i >= 0 and next_positions[i] == max_positions[i]:
+            i -= 1
+        
+        if i < 0:
+            return None
+        
+        next_positions[i] += 1
+        for j in range(i + 1, len(next_positions)):
+            next_positions[j] = 0
+        
+        return next_positions
+    
     def exhaustive_search(self):
+        """
+        Perform exhaustive search to find the optimal motif positions.
+        
+        :return: List of optimal start positions.
+        """
+        if not self.sequences:
+            return None
+        
         best_score = -1
-        res = []
-        s = [0]*len(self.seqs)
-        while s != None:
-            sc = self.score(s)
-            if sc > best_score:
-                best_score = sc
-                res = s
-            s = self.next_solution(s)
-        return res
-
-    def exhaustive_search(self):
-        best_score = -1
-        res = []
-        s = [0] * len(self.seqs)
-        while (s != None):
-            sc = self.score(s)
-            if (sc > best_score):
-                best_score = sc
-                res = s
-            s = self.next_solution(s)
-        return res
-
-    ## BRANCH AND BOUND
-    def next_vertex(self, s):
-        res = []
-        if len(s) < len(self.seqs):  # internal node -> down one level
-            for i in range(len(s)):
-                res.append(s[i])
-            res.append(0)
-        else:  # bypass
-            pos = len(s) - 1
-            while pos >= 0 and s[pos] == self.seq_size(pos) - self.motif_size:
-                pos -= 1
-            if pos < 0:
-                res = None  # last solution
-            else:
-                for i in range(pos): res.append(s[i])
-                res.append(s[pos] + 1)
-        return res
-
-    def bypass(self, s):
-        res = []
-        pos = len(s) - 1
-        while pos >= 0 and s[pos] == self.seq_size(pos) - self.motif_size:
-            pos -= 1
-        if pos < 0:
-            res = None
+        best_positions = None
+        current_positions = [0] * len(self.sequences)
+        
+        while current_positions is not None:
+            score_val = self.calculate_additive_score(current_positions)
+            if score_val > best_score:
+                best_score = score_val
+                best_positions = list(current_positions)
+            current_positions = self._generate_next_position_vector(current_positions)
+        
+        return best_positions
+    
+    def _generate_next_vertex(self, current_path):
+        """
+        Generate the next vertex in the branch-and-bound tree (extend or increment).
+        
+        :param current_path: Current path in the search tree.
+        :return: Next path or None.
+        """
+        num_sequences = len(self.sequences)
+        if len(current_path) < num_sequences:
+            # Extend to next sequence
+            return current_path + [0]
         else:
-            for i in range(pos): res.append(s[i])
-            res.append(s[pos] + 1)
-        return res
-
-    def branch_and_bound(self):
+            # Increment like next position vector
+            return self._generate_next_position_vector(current_path)
+    
+    def _bypass_subtree(self, current_path):
+        """
+        Bypass the current subtree by incrementing the last fixed position.
+        
+        :param current_path: Current partial path.
+        :return: Next path at the same level or None.
+        """
+        # Similar to _generate_next_position_vector but for partial path
+        next_path = list(current_path)
+        i = len(next_path) - 1
+        max_positions = [self.sequence_length(idx) - self.motif_length for idx in range(len(next_path))]
+        
+        while i >= 0 and next_path[i] == max_positions[i]:
+            i -= 1
+        
+        if i < 0:
+            return None
+        
+        next_path[i] += 1
+        for j in range(i + 1, len(next_path)):
+            next_path[j] = 0
+        
+        return next_path
+    
+    def branch_and_bound_search(self):
+        """
+        Perform branch-and-bound search to find the optimal motif positions.
+        
+        :return: List of optimal start positions.
+        """
+        if not self.sequences:
+            return None
+        
         best_score = -1
-        best_motif = None
-        size = len(self.seqs)
-        s = [0] * size
-        while s != None:
-            if len(s) < size:
-                # estimate the bound for current internal node
-                # test if the best score can be reached
-                optimum_score = self.score(s) + (size - len(s)) * self.motif_size
-                if optimum_score < best_score:
-                    s = self.bypass(s)
+        best_positions = None
+        num_sequences = len(self.sequences)
+        current_path = []
+        
+        while current_path is not None:
+            if len(current_path) < num_sequences:
+                # Internal node: estimate upper bound
+                partial_score = self.calculate_additive_score(current_path)
+                remaining_contribution = (num_sequences - len(current_path)) * self.motif_length
+                upper_bound = partial_score + remaining_contribution
+                
+                if upper_bound <= best_score:  # Note: <= to handle equality if desired
+                    current_path = self._bypass_subtree(current_path)
                 else:
-                    s = self.next_vertex(s)
+                    current_path = self._generate_next_vertex(current_path)
             else:
-                # test if current leaf is a better solution
-                sc = self.score(s)
-                if sc > best_score:
-                    best_score = sc
-                    best_motif = s
-                s = self.next_vertex(s)
-        return best_motif
-
-    # Consensus (heuristic)
-    def heuristic_consensus(self):
-        res = [0] * len(self.seqs)
-        max_score = -1;
-        partial = [0, 0]
-        for i in range(self.seq_size(0) - self.motif_size):
-            for j in range(self.seq_size(1) - self.motif_size):
-                partial[0] = i
-                partial[1] = j
-                sc = self.score(partial);
-                if (sc > max_score):
-                    max_score = sc
-                    res[0] = i
-                    res[1] = j
-        for k in range(2, len(self.seqs)):
-            partial = [0] * (k + 1)
-            for j in range(k):
-                partial[j] = res[j]
-            max_score = -1
-            for i in range(self.seq_size(k) - self.motif_size):
-                partial[k] = i
-                sc = self.score(partial)
-                if (sc > max_score):
-                    max_score = sc
-                    res[k] = i
-        return res
-
-def test1():
-    sm = DeterministcMOTIFsearch()
-    print(sm.alphabet)
-    print(len(sm.alphabet))
-    sm.read_file("exampleMotifs.txt", "DNA")
-    sol = [25, 20, 2, 55, 59]
-    print(len(sm.alphabet))
-    si = sm.create_motif_from_indexes(sol)
-    print(si)
-    sa = sm.score(sol)
-    print(sa)
-    scm = sm.score_multiplicative(sol)
-    print(scm)
-
-def test2():
-    seq1 = MySeq("ATAGAGCTGA", "DNA")
-    seq2 = MySeq("ACGTAGATGA", "DNA")
-    seq3 = MySeq("AAGATAGGGG", "DNA")
-    mf = DeterministcMOTIFsearch(3, [seq1, seq2, seq3])
-    print("Exhaustive:")
-    sol = mf.exhaustive_search()
-    print("Solution: ", sol)
-    print("Score: ", mf.score(sol))
-    print("\nBranch and Bound:")
-    sol2 = mf.branch_and_bound()
-    print("Solution: ", sol2)
-    print("Score:", mf.score(sol2))
-    print("\nHeuristic consensus: ")
-    sol3 = mf.heuristic_consensus()
-    print("Solution: ", sol3)
-    print("Score:", mf.score(sol3))
-
-def test3():
-    mf = DeterministcMOTIFsearch()
-    mf.read_file("exampleMotifs.txt", "DNA")
-    print("Branch and Bound:")
-    sol = mf.branch_and_bound()
-    print("Solution: ", sol)
-    print("Score:", mf.score(sol))
-    print("\nHeuristic consensus: ")
-    sol2 = mf.heuristic_consensus()
+                # Leaf node: evaluate full solution
+                score_val = self.calculate_additive_score(current_path)
+                if score_val > best_score:
+                    best_score = score_val
+                    best_positions = list(current_path)
+                current_path = self._generate_next_vertex(current_path)
+        
+        return best_positions
+    
+    def consensus_heuristic(self):
+        """
+        Use the CONSENSUS heuristic to find approximate motif positions.
+        Builds progressively by adding one sequence at a time.
+        
+        :return: List of approximate start positions.
+        """
+        num_sequences = len(self.sequences)
+        if num_sequences < 2:
+            return [0] * num_sequences
+        
+        best_positions = [0] * num_sequences
+        max_score = -1
+        
+        # Step 1: Find best pair for first two sequences
+        seq0_max = self.sequence_length(0) - self.motif_length
+        seq1_max = self.sequence_length(1) - self.motif_length
+        for pos0 in range(seq0_max + 1):
+            for pos1 in range(seq1_max + 1):
+                partial = [pos0, pos1]
+                score_val = self.calculate_additive_score(partial)
+                if score_val > max_score:
+                    max_score = score_val
+                    best_positions[0] = pos0
+                    best_positions[1] = pos1
+        
+        # Step 2: Add remaining sequences one
