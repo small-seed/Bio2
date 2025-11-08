@@ -1,70 +1,72 @@
 from Bio.Blast import NCBIWWW
 from Bio.Blast import NCBIXML
 from Bio import SeqIO
+import re
 
-def blast_nr_prot(filename):
-    record = SeqIO.read(open(filename), format="fasta")
-    result = NCBIWWW.qblast("blastn", "nt", record.format("fasta"))
-    save_file = open("analyse_result.xml", "w")
-    save_file.write(result.read())
-    save_file.close()
-    result.close()
+def perform_nucleotide_blast(fasta_file_path):
+    sequence_record = SeqIO.read(open(fasta_file_path), "fasta")
+    
+    blast_handle = NCBIWWW.qblast("blastn", "nt", sequence_record.format("fasta"))
+    
+    with open("blast_output.xml", "w") as output_file:
+        output_file.write(blast_handle.read())
+    
+    blast_handle.close()
 
-# use blast record to alanyse the result from the function above
-# input file type: xml
-def blast_records(xml_filename):
-    blastRecords = NCBIXML.read(open(xml_filename))
-    E_threshold = 0.001
-    for blastRecord in blastRecords:
-        for alignment in blastRecord.alignments:
-            for hsp in alignment.hsps:
-                if hsp.expect < E_threshold:
-                    print("∗∗∗∗Alignment∗∗∗∗")
-                    print("sequence:", alignment.title)
-                    print("length:", alignment.length)
-                    print("e value:", hsp.expect)
-                    print(hsp.query[0:75] + "...")
-                    print(hsp.match[0:75] + "...")
-                    print(hsp.sbjct[0:75] + "...")
+def analyze_blast_results(xml_file_path, e_value_cutoff=0.001):
+    with open(xml_file_path) as xml_handle:
+        blast_records = NCBIXML.parse(xml_handle)
 
-    # Check the first alignment
-    first_alignment = blastRecords.alignments[0]
-    print("FIRST ALIGNMENT:")
-    print("Accession: " + first_alignment.accession)
-    print("Hit id: " + first_alignment.hit_id)
-    print("Definition: " + first_alignment.hit_def)
-    print("Alignment length: ", first_alignment.length)
-    print("Number of HSPs: ", len(first_alignment.hsps))
-
-    # Check single HSP
-    hsp = first_alignment.hsps[0]
-    print("E−value: ", hsp.expect)
-    print("Score: ", hsp.score)
-    print("Length: ", hsp.align_length)
-    print("Identities: ", hsp.identities)
-    print("Alignment of the HSP:")
-    print(hsp.query)
-    print(hsp.match)
-    print(hsp.sbjct)
-
-    # print top 10 alignment
-    print("Top 10 alignments:")
-    for i in range(10):
-        alignment = blastRecords.alignments[i]
-    print("Accession: " + alignment.accession)
-    print("Definition: " + alignment.hit_def)
-    for hsp in alignment.hsps:
-        print("E−value: ", hsp.expect)
-    print()
-
-    # Find which organisms in top 20 alignments
-    import re
-    specs = []
-    for i in range(20):
-        alignment = blastRecords.alignments[i]
-        definition = alignment.hit_def
-        x = re.search("\[(.∗?)\]", definition).group(1)
-        specs.append(x)
-
-    print("Organisms: ")
-    for s in specs: print(s)
+    blast_record = next(blast_records)
+    
+    print("*** Significant Alignments (E-value < {:.3f}) ***".format(e_value_cutoff))
+    for alignment in blast_record.alignments:
+        for hsp in alignment.hsps:
+            if hsp.expect < e_value_cutoff:
+                print("**** Alignment ****")
+                print("Subject sequence:", alignment.title)
+                print("Alignment length:", alignment.length)
+                print("E-value:", hsp.expect)
+                print(hsp.query[:75] + "...")
+                print(hsp.match[:75] + "...")
+                print(hsp.sbjct[:75] + "...")
+    
+    if blast_record.alignments:
+        first_align = blast_record.alignments[0]
+        print("\nFIRST ALIGNMENT DETAILS:")
+        print("Accession ID:", first_align.accession)
+        print("Hit ID:", first_align.hit_id)
+        print("Description:", first_align.hit_def)
+        print("Alignment length:", first_align.length)
+        print("Number of HSPs:", len(first_align.hsps))
+        
+        first_hsp = first_align.hsps[0]
+        print("Best HSP E-value:", first_hsp.expect)
+        print("Best HSP Score:", first_hsp.score)
+        print("Best HSP Length:", first_hsp.align_length)
+        print("Best HSP Identities:", first_hsp.identities)
+        print("Best HSP Alignment:")
+        print("Query:", first_hsp.query)
+        print("Match:", first_hsp.match)
+        print("Subject:", first_hsp.sbjct)
+    
+    print("\nTOP 10 ALIGNMENTS:")
+    for idx in range(min(10, len(blast_record.alignments))):
+        align = blast_record.alignments[idx]
+        print(f"\n--- Alignment {idx + 1} ---")
+        print("Accession ID:", align.accession)
+        print("Description:", align.hit_def)
+        for hsp in align.hsps:
+            print("  HSP E-value:", hsp.expect)
+    
+    print("\nORGANISMS IN TOP 20 ALIGNMENTS:")
+    organism_list = []
+    for idx in range(min(20, len(blast_record.alignments))):
+        align = blast_record.alignments[idx]
+        description = align.hit_def
+        match = re.search(r"\[([^\]]+)\]", description)
+        if match:
+            organism_list.append(match.group(1))
+    
+    for organism in organism_list:
+        print(organism)
