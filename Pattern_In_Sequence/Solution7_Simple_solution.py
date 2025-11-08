@@ -1,36 +1,58 @@
-class naivie_guy():
-    def search_first_occ(self, seq, pattern):
-        found = False
+class NaiveStringMatcher:
+    @staticmethod
+    def find_first_occurrence(sequence, target_pattern):
+        seq_len = len(sequence)
+        pat_len = len(target_pattern)
+        if pat_len == 0:
+            return 0
+        if seq_len < pat_len:
+            return -1
+        
         i = 0
-        while i <= len(seq) - len(pattern) and not found:
+        found = False
+        while i <= seq_len - pat_len and not found:
             j = 0
-            while j < len(pattern) and pattern[j] == seq[i+j]:
-                j = j+1
-            if j == len(pattern):
+            while j < pat_len and target_pattern[j] == sequence[i + j]:
+                j += 1
+            if j == pat_len:
                 found = True
             else:
                 i += 1
-        if found:
-            return i
-        else:
-            return -1
-
-    def search_all_occs(self, seq, pattern):
-        res = []
-        for i in range(len(seq) - len(pattern) +1):
+        return i if found else -1
+    
+    @staticmethod
+    def find_all_occurrences(sequence, target_pattern):
+        seq_len = len(sequence)
+        pat_len = len(target_pattern)
+        matches = []
+        if pat_len == 0:
+            return list(range(seq_len + 1))
+        if seq_len < pat_len:
+            return []
+        
+        for i in range(seq_len - pat_len + 1):
             j = 0
-            while j < len(pattern) and pattern[i] == seq[i+j]:
-                j = j+1
-            if j == len(pattern):
-                res.append(i)
-        return res
+            while j < pat_len and target_pattern[j] == sequence[i + j]:
+                j += 1
+            if j == pat_len:
+                matches.append(i)
+                i += pat_len - 1  # Skip to after the match for non-overlapping
+        return matches
 
-def test():
-    seq = input("Input sequence: ")
-    pat = input("Input pattern: ")
-    _ = naivie_guy.search_all_occs(seq, pat)
+def interactive_test():
+    input_sequence = input("Enter sequence: ").strip()
+    search_pattern = input("Enter pattern: ").strip()
+    
+    if not search_pattern:
+        print("No pattern provided.")
+        return
+    
+    all_positions = NaiveStringMatcher.find_all_occurrences(input_sequence, search_pattern)
+    
+    if all_positions:
+        print(f"'{search_pattern}' found in the sequence at positions: {all_positions}")
+    else:
+        print(f"'{search_pattern}' not found in the sequence.")
 
-    print(pat, " can be found in given sequence at position:", )
-    print(_)
-
-test()
+if __name__ == "__main__":
+    interactive_test()
