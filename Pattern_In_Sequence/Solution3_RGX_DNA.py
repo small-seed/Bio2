@@ -1,41 +1,37 @@
 import re
 
-class Regex_solution_ADN():
-    @classmethod
-    def __init__(self,seq,pattern):
-        self.sequence = seq
-        self.pattern = pattern
+class DNAPatternMatcher:    
+    def __init__(self, dna_sequence, target_pattern):
+        self.dna_sequence = dna_sequence
+        self.target_pattern = target_pattern
+    
+    def locate_first_match(self, sequence, pattern):
+        match = re.search(pattern, sequence)
+        return match.start() if match else -1
+    
+    def locate_all_matches(self, sequence, pattern):
+        matches = re.finditer(pattern, sequence)
+        return [match.start() for match in matches]
 
-    def find_pattern_regex(seq, pat):
-        from re import search
-        mo = search(pat, seq)
-        if (mo != None):
-            return mo.span()[0]
-        else :
-            return -1
-
-    def find_all_occurrences_re(seq, pat):
-        from re import finditer
-        mos = finditer(pat, seq)
-        res = []
-        for x in mos:
-            res.append(x.span()[0])
-        return res
-
-def test():
-    seq = input("Input sequence:")
-    pat = input("Input pattern (as a regular expression):")
-    new = Regex_solution_ADN(seq,pat)
-
-    res = new.find_all_occurrences_re(seq, pat)
-    if res >= 0:
-        print("Pattern found in position: ", res)
-    else :
-        print("Pattern not found")
-
-    all_res = new.find_all_occurrences_re(seq, pat)
-    if len(all_res) > 0:
-        print("Pattern found in positions: ", all_res)
+def demonstrate_usage():
+    dna_seq = input("Enter DNA sequence: ").strip()
+    regex_pat = input("Enter pattern (regex): ").strip()
+    
+    matcher = DNAPatternMatcher(dna_seq, regex_pat)
+    
+    # Find first occurrence
+    first_pos = matcher.locate_first_match()
+    if first_pos >= 0:
+        print(f"First match found at position: {first_pos}")
     else:
-        print("Pattern not found")
-test()
+        print("No match found")
+    
+    # Find all occurrences
+    all_positions = matcher.locate_all_matches()
+    if all_positions:
+        print(f"All matches found at positions: {all_positions}")
+    else:
+        print("No matches found")
+
+if __name__ == "__main__":
+    demonstrate_usage()
