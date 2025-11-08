@@ -1,42 +1,42 @@
 import re
 
-class Regex_Protein_Motifs():
-    def __init__(self, seq, prof):
-        self.sequence = seq
-        self.profile = prof
+class ProteinMotifRegexDetector:    
+    def __init__(self, amino_sequence, prosite_pattern):
+        self.amino_sequence = amino_sequence.upper()
+        self.prosite_pattern = prosite_pattern
+    
+    def detect_zinc_finger_ring(self):
+        zinc_regex = r'C\.[H][LIVMFY]C\.{2}C[LIVMYA]'
+        match = re.search(zinc_regex, self.amino_sequence)
+        return match.start() if match else -1
+    
+    def _convert_prosite_to_regex(self, pattern):
+        regex_pat = re.sub(r'−|-', '', pattern)
+        # Replace x (any single) with .
+        regex_pat = regex_pat.replace('x', '.')
+        # Handle repeats: x(n) -> .{n}, but since x replaced, (n) -> {n}
+        regex_pat = re.sub(r'\((\d+)\)', r'{\1}', regex_pat)
+        
+        return regex_pat
+    
+    def detect_prosite_motif(self):
+        regex_pattern = self._convert_prosite_to_regex(self.prosite_pattern)
+        match = re.search(regex_pattern, self.amino_sequence)
+        return match.start() if match else -1
 
-    # Find Zinc finger RING-type signature” (PS00518) motif
-    # which is represented by “C-x-H-x-[LIVMFY]-C-x(2)-C-[LIVMYA]
-    def find_zync_finger(self):
-        from re import search
-        regexp = "C.H.[LIVMFY]C.{2}C[LIVMYA]"
-        mo = search(regexp, self.sequence)
-        if (mo != None):
-            return mo.span()[0]
-        else:
-            return -1
-    # Transform Prosite pattern into an Regex form
-    # and find it in the sequence
-    def find_prosite(self):
-        from re import search
-        regexp = self.profile.replace("−", "")
-        regexp = self.profile.replace("x", ".")
-        regexp = self.profile.replace("(", "{")
-        regexp = self.profile.replace(")", "}")
-        mo = search(regexp, self.sequence)
-        if(mo != None):
-            return mo.span()[0]
-        else:
-            return -1
+def interactive_test():
+    protein_seq = input("Enter protein sequence: ").strip()
+    prosite_pat = input("Enter ProSite pattern: ").strip()
+    
+    detector = ProteinMotifRegexDetector(protein_seq, prosite_pat)
+    
+    # Detect Zinc finger
+    zinc_pos = detector.detect_zinc_finger_ring()
+    print(f"Zinc finger RING motif found at position: {zinc_pos}")
+    
+    # Detect general ProSite
+    prosite_pos = detector.detect_prosite_motif()
+    print(f"ProSite motif found at position: {prosite_pos}")
 
-def test():
-    seq = input("Input sequence:")
-    pat = input("Input prosite form:")
-    new = Regex_Protein_Motifs(seq,pat)
-
-    res1 = new.find_zync_finger(seq, pat)
-    res2 = new.find_prosite(seq,pat)
-    print("The zync finger pattern found in the sequence: ", res1)
-    print("Regex form of the given prosite: ", res2)
-
-test()
+if __name__ == "__main__":
+    interactive_test()
