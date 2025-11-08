@@ -1,22 +1,18 @@
 import re
 
-class Regex_Sequence_Analysis():
-    @classmethod
-    def __init__(self, seq, pattern):
-        self.sequence = seq
-        self.pattern = pattern
-
-    # Find if a pattern  on a sequence
-    def validate_dna_re (self):
-        from re import search
-        if search("[^pattern]",self.seq) != None:
+class SequenceRegexAnalyzer:    
+    def __init__(self, input_sequence, allowed_chars="ACGT"):
+        self.input_sequence = input_sequence.upper()
+        self.allowed_chars = allowed_chars
+    
+    def validate_sequence_composition(self):
+        invalid_pattern = re.escape(self.allowed_chars)
+        if re.search(f'[^{invalid_pattern}]', self.input_sequence):
             return False
-        else:
-            return True
-
-    # translate a DNA sequence to protein
-    def translate_codon_re(self):
-        table = {
+        return True
+    
+    def _get_codon_table(self):
+        return {
             'ATA': 'I', 'ATC': 'I', 'ATT': 'I', 'ATG': 'M',
             'ACA': 'T', 'ACC': 'T', 'ACG': 'T', 'ACT': 'T',
             'AAC': 'N', 'AAT': 'N', 'AAA': 'K', 'AAG': 'K',
@@ -34,36 +30,56 @@ class Regex_Sequence_Analysis():
             'TAC': 'Y', 'TAT': 'Y', 'TAA': '_', 'TAG': '_',
             'TGC': 'C', 'TGT': 'C', 'TGA': '_', 'TGG': 'W',
         }
-        protein =""
-        if len(self.sequence) % 3 == 0:
-            for i in range(0, len(self.sequence), 3):
-                codon = self.sequence[i:i+3]
-                protein += table[codon]
-        return protein
+    
+    def convert_to_protein(self):
+        codon_mapping = self._get_codon_table()
+        if len(self.input_sequence) % 3 != 0:
+            raise ValueError("Sequence length must be a multiple of 3 for translation.")
+        
+        protein_chain = ""
+        for start_idx in range(0, len(self.input_sequence), 3):
+            codon = self.input_sequence[start_idx:start_idx + 3]
+            if codon in codon_mapping:
+                protein_chain += codon_mapping[codon]
+            else:
+                raise ValueError(f"Invalid codon encountered: {codon}")
+        return protein_chain
+    
+    def identify_longest_protein_segment(self):
+        try:
+            protein = self.convert_to_protein()
+        except ValueError:
+            return ""
+        
+        matches = re.finditer(r'M[^_]*_', protein)
+        max_length = 0
+        longest_segment = ""
+        
+        for match_obj in matches:
+            segment_start, segment_end = match_obj.span()
+            segment_length = segment_end - segment_start
+            if segment_length > max_length:
+                max_length = segment_length
+                longest_segment = match_obj.group()
+        
+        return longest_segment
 
-    #  Find largest protein start with "M" and end with "-"
-    def find_largest_protein(self):
-        mos = re.finditer("M[^_]*_", self.sequence)
-        sizem = 0
-        largest_prot = ""
-        for x in mos:
-            init = x.span()[0]
-            fin = x.span()[1]
-            s = fin - init + 1
-            if s > sizem:
-                largest_prot = x.group()
-                sizem = s
-        return largest_prot
+def interactive_demo():
+    dna_input = input("Enter the sequence: ").strip()
+    regex_input = input("Enter pattern (as a regular expression; used for validation chars): ").strip()
+    
+    analyzer = SequenceRegexAnalyzer(dna_input, regex_input)
+    
+    # Perform translation
+    try:
+        translated_protein = analyzer.convert_to_protein()
+        print(f"Translated protein: {translated_protein}")
+    except ValueError as e:
+        print(f"Translation error: {e}")
+    
+    # Find longest protein segment
+    longest = analyzer.identify_longest_protein_segment()
+    print(f"Longest protein segment: {longest}")
 
-def test():
-    seq = input("Input sequence:")
-    pat = input("Input pattern (as a regular expression):")
-    new = Regex_Sequence_Analysis(seq,pat)
-
-    res1 = new.translate_codon_re(seq, pat)
-    res2 = new.find_largest_protein(seq,pat)
-    print("Protein translated from the DNA sequence: ", res1)
-    print("Largest protein is: ", res2)
-
-test()
-
+if __name__ == "__main__":
+    interactive_demo()
