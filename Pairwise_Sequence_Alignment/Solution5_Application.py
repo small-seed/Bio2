@@ -1,35 +1,20 @@
-from Pairwise_Sequence_Alignment import Solution2_SubMaxtrix_GapPenalties
-from Pairwise_Sequence_Alignment import Solution3_Needleman_Wunsch
-from Pairwise_Sequence_Alignment import Solution4_Local_Alig_Smith_Waterman
+def compute_longest_common_subsequence(seq_a, seq_b, symbols="ACGT"):
+    scoring_matrix = build_scoring_matrix(1, 0, symbols)
+    score_matrix, trace_matrix = perform_needleman_wunsch(seq_a, seq_b, scoring_matrix, 0)
+    aligned_a, aligned_b = reconstruct_alignment(trace_matrix, seq_a, seq_b)
+    common_subseq = ''.join([aligned_a[i] for i in range(len(aligned_a)) if aligned_a[i] == aligned_b[i]])
+    return common_subseq
 
-# Find the e longest common sub-sequence between two sequences
-def longest_common_subseq (sequence1, sequence2, alphabet = "ACGT"):
-    submatrix = Solution2_SubMaxtrix_GapPenalties.create_submat(1,0,alphabet)
-    S,T = Solution3_Needleman_Wunsch.needleman_Wunsh_Algorithsm(sequence1, sequence2, submatrix, 0)
-    alingment = Solution3_Needleman_Wunsch.align_recover(T, sequence1, sequence2)
+def calculate_edit_distance(seq_a, seq_b, symbols="ACGT"):
+    scoring_matrix = build_scoring_matrix(0, -1, symbols)
+    score_matrix, trace_matrix = perform_needleman_wunsch(seq_a, seq_b, scoring_matrix, -1)
+    edit_dist = -score_matrix[-1][-1]
+    return edit_dist
 
-    sizeOfAling = len(alingment[0])
-    largest_subsq = ""
-    for i in range(sizeOfAling):
-        if alingment[0][i] == alingment[1][i]:
-            largest_subsq += alingment[1][i]
-    return largest_subsq
-
-# Calculation of the edit distance, the minimum number of operation
-# required to transform one string to another
-# input matches to have a score of 0, while gaps and mismatches are scored with −1
-def edit_distance(seq1, seq2, alphabet ="ACGT"):
-    submatrix = Solution2_SubMaxtrix_GapPenalties.create_submat(0,-1,alphabet)
-    S,T = Solution3_Needleman_Wunsch.needleman_Wunsh_Algorithsm(seq1, seq2, submatrix, -1)
-    res =-1*S[len(seq1)][len(seq2)]
-    return res
-
-# Find the longest common string in two sequences
-def longest_common_string (seq1, seq2, alphabet = "ACGT"):
-    m = max( len (seq1), len (seq2))
-    pen = -1 * (m+1)
-    sm = Solution2_SubMaxtrix_GapPenalties.create_submat(1, pen, alphabet)
-    S,T,b = Solution4_Local_Alig_Smith_Waterman.smith_Water_Algorithsm(seq1, seq2, sm, pen)
-    alinL= Solution4_Local_Alig_Smith_Waterman.recover_align_local(S, T, seq1, seq2)
-    return alinL[0]
-
+def find_longest_common_substring(seq_a, seq_b, symbols="ACGT"):
+    max_length = max(len(seq_a), len(seq_b))
+    large_penalty = -(max_length + 1)
+    scoring_matrix = build_scoring_matrix(1, large_penalty, symbols)
+    score_matrix, trace_matrix, _, max_pos = perform_smith_waterman(seq_a, seq_b, scoring_matrix, large_penalty)
+    aligned_a, aligned_b = reconstruct_local_alignment(trace_matrix, seq_a, seq_b, *max_pos)
+    return aligned_a
